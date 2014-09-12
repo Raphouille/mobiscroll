@@ -1,5 +1,4 @@
-/*jslint eqeq: true, plusplus: true, undef: true, sloppy: true, vars: true, forin: true */
-(function ($) {
+(function ($, undefined) {
     var ms = $.mobiscroll,
         defaults = {
             invalid: [],
@@ -34,13 +33,16 @@
              * @param {Array} whVector - the wheel vector containing the current keys
              */
             function setDisabled(dw, nrWheels, whArray, whVector) {
-                var i = 0;
+                var j,
+                    i = 0;
+
                 while (i < nrWheels) {
                     var currWh = $('.dwwl' + i, dw),
                         inv = getInvalidKeys(whVector, i, whArray);
-                    $.each(inv, function (i, v) {
-                        $('.dw-li[data-val="' + v + '"]', currWh).removeClass('dw-v');
-                    });
+
+                    for (j = 0; j < inv.length; j++) {
+                        $('.dw-li[data-val="' + inv[j] + '"]', currWh).removeClass('dw-v');
+                    }
                     i++;
                 }
             }
@@ -303,7 +305,7 @@
                     var v = c.html().replace(/^\s\s*/, '').replace(/\s\s*$/, ''),
                         inv = that.data('invalid') ? true : false,
                         wheelObj = {
-                            key: that.data('val') || index,
+                            key: that.attr('data-val') === undefined ? index : that.attr('data-val'),
                             value: v,
                             invalid: inv,
                             children: null
@@ -324,7 +326,7 @@
             $('#' + id).remove(); // Remove input if exists
 
             if (s.showInput) {
-                input = $('<input type="text" id="' + id + '" value="" class="' + s.inputClass + '" readonly />').insertBefore(elm);
+                input = $('<input type="text" id="' + id + '" value="" class="' + s.inputClass + '" placeholder="' + (s.placeholder || '') + '" readonly />').insertBefore(elm);
                 s.anchor = input; // give the core the input element for the bubble positioning
                 inst.attachShow(input);
             }
@@ -341,10 +343,10 @@
                 formatResult: function (d) {
                     return d.slice(0, currLevel).join(' ');
                 },
-                parseValue: function (value, inst) {
-                    return value ? value.split(" ") : (s.defaultValue || fwv);
+                parseValue: function (value) {
+                    return value ? value.split(" ") : (s.defaultValue || fwv).slice(0);
                 },
-                onBeforeShow: function (dw) {
+                onBeforeShow: function () {
                     var t = inst.temp;
                     currWheelVector = t.slice(0);
                     s.wheels = generateWheelsFromVector(t, lvl, lvl);
@@ -412,12 +414,12 @@
                     hideWheels(dw, o.lvl);
 
                     prevent = false;
-               }
+                }
             };
         };
 
     $.each(['list', 'image', 'treelist'], function (i, v) {
-        ms.presets[v] = preset;
+        ms.presets.scroller[v] = preset;
         ms.presetShort(v);
     });
 

@@ -1,13 +1,12 @@
-/*jslint eqeq: true, plusplus: true, undef: true, sloppy: true, vars: true, forin: true, nomen: true */
 /*!
- * Mobiscroll v2.9.5
+ * Mobiscroll v2.13.0
  * http://mobiscroll.com
  *
  * Copyright 2010-2014, Acid Media
  * Licensed under the MIT license.
  *
  */
-(function ($) {
+(function ($, undefined) {
 
     function testProps(props) {
         var i;
@@ -29,10 +28,6 @@
             }
         }
         return '';
-    }
-
-    function getCoord(e, c) {
-        return /touch/.test(e.type) ? (e.originalEvent || e).changedTouches[0]['page' + c] : e['page' + c];
     }
 
     function init(that, options, args) {
@@ -70,17 +65,7 @@
         return ret;
     }
 
-    function testTouch(e) {
-        if (e.type == 'touchstart') {
-            touches[e.target] = true;
-        } else if (touches[e.target]) {
-            delete touches[e.target];
-            return false;
-        }
-        return true;
-    }
-
-    var id = +new Date,
+    var id = +new Date(),
         touches = {},
         instances = {},
         extend = $.extend,
@@ -96,28 +81,55 @@
     };
 
     $.mobiscroll = $.mobiscroll || {
+        version: '2.13.0',
         util: {
             prefix: prefix,
             jsPrefix: pr,
             has3d: has3d,
             hasFlex: hasFlex,
-            getCoord: getCoord,
-            testTouch: testTouch
+            testTouch: function (e) {
+                if (e.type == 'touchstart') {
+                    touches[e.target] = true;
+                } else if (touches[e.target]) {
+                    delete touches[e.target];
+                    return false;
+                }
+                return true;
+            },
+            isNumeric: function (a) {
+                return a - parseFloat(a) >= 0;
+            },
+            getCoord: function (e, c) {
+                var ev = e.originalEvent || e;
+                return ev.changedTouches ? ev.changedTouches[0]['page' + c] : e['page' + c];
+            },
+            constrain: function (val, min, max) {
+                return Math.max(min, Math.min(val, max));
+            }
         },
-        presets: {},
-        themes: {},
+        tapped: false,
+        presets: {
+            scroller: {},
+            numpad: {}
+        },
+        themes: {
+            listview: {}
+        },
         i18n: {},
         instances: instances,
         classes: {},
         components: {},
-        defaults: {},
+        defaults: {
+            theme: 'mobiscroll',
+            context: 'body'
+        },
         userdef: {},
         setDefaults: function (o) {
             extend(this.userdef, o);
         },
-        presetShort: function (name, c) {
+        presetShort: function (name, c, p) {
             this.components[name] = function (s) {
-                return init(this, extend(s, { component: c, preset: name }), arguments);
+                return init(this, extend(s, { component: c, preset: p === false ? undefined : name }), arguments);
             };
         }
     };

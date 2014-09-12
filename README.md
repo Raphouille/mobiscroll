@@ -32,6 +32,225 @@ It'd be cool to see how you're using Mobiscroll!
 
 We're looking at showcasing some of the best work on http://mobiscroll.com . Feel free to let us know on twitter @mobiscroll!
 
+Changelog 2.12.0-beta
+=====================
+
+_Scroller_
+
+  * New: `focusOnClose` setting.
+
+_Calendar_
+
+  * Fixed: Time was not set correctly if `closeOnSelect` was true.
+
+  * Fixed: In fullscreen mode calendar was not full width.
+
+  * New: `onSetDate` receives a day object with `date` and `control` (where the selection occured: 'calendar', 'date', 'time' or undefined) properties.
+
+  * New: `navigate` method to display a specific month on the calendar without setting the date.
+
+  * New: `weekDays` option to control the format of week days in the calendar header. Can be `full`, `short` or `min`.
+
+_Listview_
+
+  * Fixed: Native input and select elements inside list items were not working (#231).
+
+  * Fixed: Be able to display multiple rows in group headers.
+
+  * Fixed: 'ng-if' directive can be used inside li's with 'mbsc-' prefix
+
+  * New: `onNavStart` and `onNavEnd` events on hierarchical navigation.
+
+  * New: `onItemTap` event receives the event object as parameter.
+
+_Numpad_
+
+  * New: A new control with numeric keys for filling numeric values.
+
+_Rangepicker_
+
+  * New: `minRange` and `maxRange` settings for minimum and maximum selectable range.
+
+  * New: `onSetDate` receives a day object with `date`, `control` (where the selection occured: 'calendar', 'date', 'time' or undefined), and `active` ('start' or 'end') properties (#222).
+
+  * New: `showSelector` setting.
+
+_Themes_
+
+  * New: Brand new default theme.
+
+  * New: Theme classes are prefixed with `.mbsc-` to make the classes less generic and avoid conflicts with other libraries.
+
+  * New: iOS7 like checkmark icon for the iOS7 theme multiselection. 
+
+  * New: New wheel styles for jQuery Mobile and Bootstrap themes.
+
+
+Changelog 2.11.1
+================
+
+_Scroller_
+
+  * Fixed: Handle resize / orientationchange events per instance.
+
+_Listview_
+
+  * Added: Tap highlight occurs only if tap action is defined.
+
+  * Added: Improved styling for jQuery Mobile listviews.
+
+  * Added: Support for adding a list item containing sub list.
+
+_Measurements_
+
+  * Added: Support for greater precision.
+
+_Number_
+
+  * Added: Support for greater precision.
+
+  * Fixed: Negative wheel values were incorrectly generated.
+
+_Rangepicker_
+
+  * Fixed: When `rangeTap` is true, set end date the same as start date on selection start.
+
+_Select_
+
+  * Added: Use font for displaying the multiselect checked icon.
+
+_Angular Integration_
+
+  * Fixed: Support for `itemGroups` setting.
+
+  * Fixed: Initial value was not set correctly for calendar and select components.
+
+  * Fixed: Script errors when timer was running.
+
+
+Changelog 2.11.0
+================
+
+_Core_
+
+  * Added: `rtl` setting for right to left support.
+
+_Datetime_
+
+  * Added: Support for invalid ranges.
+
+  * Added: `valid` setting to override invalid dates.
+
+_Languages_
+
+  * Added: Persian translation and support for jalali dates.
+
+_List_
+
+  * Fixed: Support for `data-val="0"` (#223).
+
+_Listview_
+
+  * Added: Undo functionality.
+
+  * Added: `itemGroups` setting for defining different settings (actions, stages, tap) for different list items.
+
+  * Added: `altRow` setting for alternate line colors.
+
+  * Added: `fixedHeader` setting for fixed group headers.
+
+_Themes_
+
+  * Changed: `android-ics` renamed to `android-holo`.
+
+_Windows Phone Theme_
+
+  * Changed: PNG images are replaced with font icons.
+
+
+Changelog 2.10.1
+================
+
+Enhancements
+------------
+
+_Core_
+
+  * Added: `preventFocus` parameter for the `show` method.
+
+  * Added: automatic liquid layout based on screen size.
+
+_Integration_
+
+  * Added: support for hiearchical listview in Knockout, Angular and Backbone integration plugins.
+
+Bugfixes
+--------
+
+_Rating_
+
+  * Fixed: Vertical alignment was incorrect with Windows Phone theme.
+
+
+Changelog 2.10.0
+================
+
+Enhancements
+------------
+
+_Calendar_
+
+  * Added: Support right to left languages with the `rtl` setting.
+
+  * Added: Support for displaying icons on marked days.
+
+_Datetime_
+
+  * Added: `yearSuffix`, `monthSuffix`, `daySuffix` settings for improved localization (#142).
+
+_List_
+
+  * Added: `placeholder` setting for the generated input field.
+
+_Listview_
+
+  * Added: `disabled` property for `stage` or `action` setting.
+
+  * Added: support for hierarchical lists.
+
+_Rating_
+
+  * Added: Font icons are now used instead of images, icons can be changed with the `iconFilled` and `iconEmpty` settings.
+
+  * Added: `placeholder` setting for the generated input field.
+
+_Rangepicker_
+
+  * Added: `autoCorrect` setting to disable automatic date adjustment if end is earlier than start.
+
+_Select_
+
+  * Added: `placeholder` setting for the generated input field.
+
+
+Bugfixes
+--------
+
+_Core_
+  
+  * Fixed: Prevent virtual keyboard popup on some devices (#216).
+
+  * Fixed: Page scrolled to bottom in IE and FF on show (#214).
+
+_Datetime_
+
+  * Fixed: Hour, minute and second steps are now calculated from minimum time, if specified (#204).
+
+_Select_
+    
+  * Fixed: Select scroller whithout value attributes now can be selected (#215).
+
+
 
 Changelog 2.9.5
 ===============

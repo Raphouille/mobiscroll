@@ -10,6 +10,7 @@
         dateOrder: 'yymmdd',
         dayNames: ['日','月','火','水','木','金','土'],
         dayNamesShort: ['日','月','火','水','木','金','土'],
+        dayNamesMin: ['日','月','火','水','木','金','土'],
         dayText: '日',
         hourText: '時',
         minuteText: '分',
@@ -23,6 +24,9 @@
         nowText: '今',
         pmText: '午後',
         amText: '午前',
+        yearSuffix: '年',
+        monthSuffix: '月',
+        daySuffix: '日',
         // Calendar component
         dateText: '日付',
         timeText: '時間',

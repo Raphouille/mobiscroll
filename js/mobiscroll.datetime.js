@@ -1,38 +1,29 @@
-/*jslint eqeq: true, plusplus: true, undef: true, sloppy: true, vars: true, forin: true */
-(function ($) {
+(function ($, undefined) {
 
     var ms = $.mobiscroll,
+        datetime = ms.datetime,
         date = new Date(),
-        locales = {
+        defaults = {
+            startYear: date.getFullYear() - 100,
+            endYear: date.getFullYear() + 1, 
+            showNow: false,
+            stepHour: 1,
+            stepMinute: 1,
+            stepSecond: 1,
+            separator: ' ',
+            // Localization
             dateFormat: 'mm/dd/yy',
             dateOrder: 'mmddy',
             timeWheels: 'hhiiA',
             timeFormat: 'hh:ii A',
-            monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-            monthNamesShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-            dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-            monthText: 'Month',
             dayText: 'Day',
             yearText: 'Year',
             hourText: 'Hours',
             minuteText: 'Minutes',
             ampmText: '&nbsp;',
             secText: 'Seconds',
-            amText: 'am',
-            pmText: 'pm',
             nowText: 'Now'
         },
-        defaults = $.extend({
-            startYear: date.getFullYear() - 100,
-            endYear: date.getFullYear() + 1,
-            shortYearCutoff: '+10',
-            showNow: false,
-            stepHour: 1,
-            stepMinute: 1,
-            stepSecond: 1,
-            separator: ' '
-        }, locales),
         /**
          * @class Mobiscroll.datetime
          * @extends Mobiscroll
@@ -66,10 +57,10 @@
                 var min = that.attr('min'),
                     max = that.attr('max');
                 if (min) {
-                    html5def.minDate = ms.parseDate(format, min);
+                    html5def.minDate = datetime.parseDate(format, min);
                 }
                 if (max) {
-                    html5def.maxDate = ms.parseDate(format, max);
+                    html5def.maxDate = datetime.parseDate(format, max);
                 }
             }
 
@@ -81,15 +72,19 @@
                 wg,
                 start,
                 end,
-                invalid,
                 hasTime,
+                mins,
+                maxs,
                 orig = $.extend({}, inst.settings),
-                s = $.extend(inst.settings, defaults, html5def, orig),
+                s = $.extend(inst.settings, ms.datetime.defaults, defaults, html5def, orig),
                 offset = 0,
+                validValues = [],
                 wheels = [],
                 ord = [],
                 o = {},
-                f = { y: 'getFullYear', m: 'getMonth', d: 'getDate', h: getHour, i: getMinute, s: getSecond, a: getAmPm },
+                f = { y: getYear, m: getMonth, d: getDay, h: getHour, i: getMinute, s: getSecond, a: getAmPm },
+                invalid = s.invalid,
+                valid = s.valid,
                 p = s.preset,
                 dord = s.dateOrder,
                 tord = s.timeWheels,
@@ -102,7 +97,13 @@
                 stepM = s.stepMinute,
                 stepS = s.stepSecond,
                 mind = s.minDate || new Date(s.startYear, 0, 1),
-                maxd = s.maxDate || new Date(s.endYear, 11, 31, 23, 59, 59);
+                maxd = s.maxDate || new Date(s.endYear, 11, 31, 23, 59, 59),
+                minH = mind.getHours() % stepH,
+                minM = mind.getMinutes() % stepM,
+                minS = mind.getSeconds() % stepS,
+                maxH = getMax(stepH, minH, (hampm ? 11 : 23)),
+                maxM = getMax(stepM, minM, 59),
+                maxS = getMax(stepM, minM, 59);
 
             format = format || hformat;
 
@@ -126,11 +127,11 @@
                         offset++;
                         values = [];
                         keys = [];
-                        start = mind.getFullYear();
-                        end = maxd.getFullYear();
+                        start = s.getYear(mind);
+                        end = s.getYear(maxd);
                         for (i = start; i <= end; i++) {
                             keys.push(i);
-                            values.push(dord.match(/yy/i) ? i : (i + '').substr(2, 2));
+                            values.push((dord.match(/yy/i) ? i : (i + '').substr(2, 2)) + (s.yearSuffix || ''));
                         }
                         addWheel(wg, keys, values, s.yearText);
                     } else if (k == o.m) {
@@ -138,7 +139,7 @@
                         values = [];
                         keys = [];
                         for (i = 0; i < 12; i++) {
-                            var str = dord.replace(/[dy]/gi, '').replace(/mm/, i < 9 ? '0' + (i + 1) : i + 1).replace(/m/, (i + 1));
+                            var str = dord.replace(/[dy]/gi, '').replace(/mm/, (i < 9 ? '0' + (i + 1) : i + 1) + (s.monthSuffix || '')).replace(/m/, i + 1 + (s.monthSuffix || ''));
                             keys.push(i);
                             values.push(str.match(/MM/) ? str.replace(/MM/, '<span class="dw-mon">' + s.monthNames[i] + '</span>') : str.replace(/M/, '<span class="dw-mon">' + s.monthNamesShort[i] + '</span>'));
                         }
@@ -149,7 +150,7 @@
                         keys = [];
                         for (i = 1; i < 32; i++) {
                             keys.push(i);
-                            values.push(dord.match(/dd/i) && i < 10 ? '0' + i : i);
+                            values.push((dord.match(/dd/i) && i < 10 ? '0' + i : i) + (s.daySuffix || ''));
                         }
                         addWheel(wg, keys, values, s.dayText);
                     }
@@ -181,16 +182,16 @@
                         offset++;
                         values = [];
                         keys = [];
-                        for (i = 0; i < (hampm ? 12 : 24); i += stepH) {
+                        for (i = minH; i < (hampm ? 12 : 24); i += stepH) {
                             keys.push(i);
-                            values.push(hampm && i == 0 ? 12 : tord.match(/hh/i) && i < 10 ? '0' + i : i);
+                            values.push(hampm && i === 0 ? 12 : tord.match(/hh/i) && i < 10 ? '0' + i : i);
                         }
                         addWheel(wg, keys, values, s.hourText);
                     } else if (k == o.i) {
                         offset++;
                         values = [];
                         keys = [];
-                        for (i = 0; i < 60; i += stepM) {
+                        for (i = minM; i < 60; i += stepM) {
                             keys.push(i);
                             values.push(tord.match(/ii/) && i < 10 ? '0' + i : i);
                         }
@@ -199,7 +200,7 @@
                         offset++;
                         values = [];
                         keys = [];
-                        for (i = 0; i < 60; i += stepS) {
+                        for (i = minS; i < 60; i += stepS) {
                             keys.push(i);
                             values.push(tord.match(/ss/) && i < 10 ? '0' + i : i);
                         }
@@ -221,7 +222,7 @@
                 if (def !== undefined) {
                     return def;
                 }
-                return defd[f[i]] ? defd[f[i]]() : f[i](defd);
+                return f[i](defd);
             }
 
             function addWheel(wg, k, v, lbl) {
@@ -232,22 +233,34 @@
                 });
             }
 
-            function step(v, st) {
-                return Math.floor(v / st) * st;
+            function step(v, st, min, max) {
+                return Math.min(max, Math.floor(v / st) * st + min);
+            }
+
+            function getYear(d) {
+                return s.getYear(d);
+            }
+			
+            function getMonth(d) {
+                return s.getMonth(d);
+            }
+
+            function getDay(d) {
+                return s.getDay(d);
             }
 
             function getHour(d) {
                 var hour = d.getHours();
                 hour = hampm && hour >= 12 ? hour - 12 : hour;
-                return step(hour, stepH);
+                return step(hour, stepH, minH, maxH);
             }
 
             function getMinute(d) {
-                return step(d.getMinutes(), stepM);
+                return step(d.getMinutes(), stepM, minM, maxM);
             }
 
             function getSecond(d) {
-                return step(d.getSeconds(), stepS);
+                return step(d.getSeconds(), stepS, minS, maxS);
             }
 
             function getAmPm(d) {
@@ -255,13 +268,19 @@
             }
 
             function getDate(d) {
+                if (d === null) {
+                    return d;
+                }
                 var hour = get(d, 'h', 0);
-                return new Date(get(d, 'y'), get(d, 'm'), get(d, 'd', 1), get(d, 'a', 0) ? hour + 12 : hour, get(d, 'i', 0), get(d, 's', 0));
+                return s.getDate(get(d, 'y'), get(d, 'm'), get(d, 'd'), get(d, 'a', 0) ? hour + 12 : hour, get(d, 'i', 0), get(d, 's', 0));
+            }
+
+            function getMax(step, min, max) {
+                return Math.floor((max - min) / step) * step + min;
             }
 
             function getClosestValidDate(d, dir) {
-                var valid,
-                    next,
+                var next,
                     prev,
                     nextValid = false,
                     prevValid = false,
@@ -315,10 +334,6 @@
             }
 
             function isValid(d) {
-                var curr,
-                    j,
-                    v;
-
                 if (d < mind) {
                     return false;
                 }
@@ -327,35 +342,218 @@
                     return false;
                 }
 
-                if (invalid) {
-                    for (j = 0; j < invalid.length; j++) {
-                        curr = invalid[j];
+                if (isInObj(d, valid)) {
+                    return true;
+                }
+
+                if (isInObj(d, invalid)) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            function isInObj(d, obj) {
+                var curr,
+                    j,
+                    v;
+
+                if (obj) {
+                    for (j = 0; j < obj.length; j++) {
+                        curr = obj[j];
                         v = curr + '';
                         if (!curr.start) {
                             if (curr.getTime) { // Exact date
                                 if (d.getFullYear() == curr.getFullYear() && d.getMonth() == curr.getMonth() && d.getDate() == curr.getDate()) {
-                                    return false;
+                                    return true;
                                 }
                             } else if (!v.match(/w/i)) { // Day of month
                                 v = v.split('/');
                                 if (v[1]) {
                                     if ((v[0] - 1) == d.getMonth() && v[1] == d.getDate()) {
-                                        return false;
+                                        return true;
                                     }
                                 } else if (v[0] == d.getDate()) {
-                                    return false;
+                                    return true;
                                 }
                             } else { // Day of week
                                 v = +v.replace('w', '');
                                 if (v == d.getDay()) {
-                                    return false;
+                                    return true;
                                 }
                             }
                         }
                     }
                 }
+                return false;
+            }
 
-                return true;
+            function validateDates(obj, y, m, first, maxdays, idx, val) {
+                var j, d, v;
+
+                if (obj) {
+                    for (j = 0; j < obj.length; j++) {
+                        d = obj[j];
+                        v = d + '';
+                        if (!d.start) {
+                            if (d.getTime) { // Exact date
+                                if (s.getYear(d) == y && s.getMonth(d) == m) {
+                                    idx[s.getDay(d) - 1] = val;
+                                }
+                            } else if (!v.match(/w/i)) { // Day of month
+                                v = v.split('/');
+                                if (v[1]) {
+                                    if (v[0] - 1 == m) {
+                                        idx[v[1] - 1] = val;
+                                    }
+                                } else {
+                                    idx[v[0] - 1] = val;
+                                }
+                            } else { // Day of week
+                                v = +v.replace('w', '');
+                                for (k = v - first; k < maxdays; k += 7) {
+                                    if (k >= 0) {
+                                        idx[k] = val;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            function validateTimes(vobj, i, v, temp, y, m, d, target, valid) {
+                var dd, ss, str, parts1, parts2, prop1, prop2, v1, v2, j, i1, i2, add, remove, all, hours1, hours2, hours3,
+                    spec = {},
+                    steps = { h: stepH, i: stepM, s: stepS, a: 1 },
+                    day = s.getDate(y, m, d),
+                    w = ['a', 'h', 'i', 's'];
+
+                if (vobj) {
+                    $.each(vobj, function (i, obj) {
+                        if (obj.start) {
+                            obj.apply = false;
+                            dd = obj.d;
+                            ss = dd + '';
+                            str = ss.split('/');
+                            if (dd && ((dd.getTime && y == s.getYear(dd) && m == s.getMonth(dd) && d == s.getDay(dd)) || // Exact date
+                                (!ss.match(/w/i) && ((str[1] && d == str[1] && m == str[0] - 1) || (!str[1] && d == str[0]))) || // Day of month
+                                (ss.match(/w/i) && day.getDay() == +ss.replace('w', '')) // Day of week
+                                )) {
+                                obj.apply = true;
+                                spec[day] = true; // Prevent applying generic rule on day, if specific exists
+                            }
+                        }
+                    });
+
+                    $.each(vobj, function (x, obj) {
+                        add = 0;
+                        remove = 0;
+                        i1 = 0;
+                        i2 = undefined;
+                        prop1 = true;
+                        prop2 = true;
+                        all = false;
+
+                        if (obj.start && (obj.apply || (!obj.d && !spec[day]))) {
+
+                            // Define time parts
+                            parts1 = obj.start.split(':');
+                            parts2 = obj.end.split(':');
+
+                            for (j = 0; j < 3; j++) {
+                                if (parts1[j] === undefined) {
+                                    parts1[j] = 0;
+                                }
+                                if (parts2[j] === undefined) {
+                                    parts2[j] = 59;
+                                }
+                                parts1[j] = +parts1[j];
+                                parts2[j] = +parts2[j];
+                            }
+
+                            parts1.unshift(parts1[0] > 11 ? 1 : 0);
+                            parts2.unshift(parts2[0] > 11 ? 1 : 0);
+
+                            if (hampm) {
+                                if (parts1[1] >= 12) {
+                                    parts1[1] = parts1[1] - 12;
+                                }
+
+                                if (parts2[1] >= 12) {
+                                    parts2[1] = parts2[1] - 12;
+                                }
+                            }
+
+                            // Look behind
+                            for (j = 0; j < i; j++) {
+                                if (validValues[j] !== undefined) {
+                                    v1 = step(parts1[j], steps[w[j]], mins[w[j]], maxs[w[j]]);
+                                    v2 = step(parts2[j], steps[w[j]], mins[w[j]], maxs[w[j]]);
+                                    hours1 = 0;
+                                    hours2 = 0;
+                                    hours3 = 0;
+                                    if (hampm && j == 1) {
+                                        hours1 = parts1[0] ? 12 : 0;
+                                        hours2 = parts2[0] ? 12 : 0;
+                                        hours3 = validValues[0] ? 12 : 0;
+                                    }
+                                    if (!prop1) {
+                                        v1 = 0;
+                                    }
+                                    if (!prop2) {
+                                        v2 = maxs[w[j]];
+                                    }
+                                    if ((prop1 || prop2) && (v1 + hours1 < validValues[j] + hours3 && validValues[j] + hours3 < v2 + hours2)) {
+                                        all = true;
+                                    }
+                                    if (validValues[j] != v1) {
+                                        prop1 = false;
+                                    }
+                                    if (validValues[j] != v2) {
+                                        prop2 = false;
+                                    }
+                                }
+                            }
+
+                            // Look ahead
+                            if (!valid) {
+                                for (j = i + 1; j < 4; j++) {
+                                    if (parts1[j] > 0) {
+                                        add = steps[v];
+                                    }
+                                    if (parts2[j] < maxs[w[j]]) {
+                                        remove = steps[v];
+                                    }
+                                }
+                            }
+                            
+                            if (!all) {
+                                // Calculate min and max values
+                                v1 = step(parts1[i], steps[v], mins[v], maxs[v]) + add;
+                                v2 = step(parts2[i], steps[v], mins[v], maxs[v]) - remove;
+
+                                if (prop1) {
+                                    i1 = getValidIndex(target, v1, maxs[v], 0);
+                                }
+
+                                if (prop2) {
+                                    i2 = getValidIndex(target, v2, maxs[v], 1);
+                                }
+                            }
+
+                            // Disable values
+                            if (prop1 || prop2 || all) {
+                                if (valid) {
+                                    $('.dw-li', target).slice(i1, i2).addClass('dw-v');
+                                } else {
+                                    $('.dw-li', target).slice(i1, i2).removeClass('dw-v');
+                                }
+                            }
+                                    
+                        }
+                    });
+                }
             }
 
             function getIndex(t, v) {
@@ -376,11 +574,37 @@
                 var i,
                     ret = [];
 
+                if (d === null || d === undefined) {
+                    return d;
+                }
+
                 for (i in o) {
-                    ret[o[i]] = d[f[i]] ? d[f[i]]() : f[i](d);
+                    ret[o[i]] = f[i](d);
                 }
 
                 return ret;
+            }
+
+            function convertRanges(arr) {
+                var i, v, start,
+                    ret = [];
+
+                if (arr) {
+                    for (i = 0; i < arr.length; i++) {
+                        v = arr[i];
+                        if (v.start && v.start.getTime) {
+                            start = new Date(v.start);
+                            while (start <= v.end) {
+                                ret.push(new Date(start.getFullYear(), start.getMonth(), start.getDate()));
+                                start.setDate(start.getDate() + 1);
+                            }
+                        } else {
+                            ret.push(v);
+                        }
+                    }
+                    return ret;
+                }
+                return arr;
             }
 
             // Extended methods
@@ -410,6 +634,9 @@
                 return getDate(temp ? inst.temp : inst.values);
             };
 
+            /**
+             * @deprecated since 2.7.0, backward compatibility code
+             */
             inst.convert = function (obj) {
                 var x = obj;
 
@@ -432,34 +659,50 @@
                 return x;
             };
 
+            // ---
+
+
+            // Initializations
+            // --- 
+
             inst.format = hformat;
+            inst.order = o;
             inst.buttons.now = { text: s.nowText, css: 'dwb-n', handler: function () { inst.setDate(new Date(), false, 0.3, true, true); } };
 
+            // @deprecated since 2.8.0, backward compatibility code
+            // ---
             if (s.showNow) {
                 s.buttons.splice($.inArray('set', s.buttons) + 1, 0, 'now');
             }
+            invalid = invalid ? inst.convert(invalid) : false;
+            // ---
 
-            invalid = s.invalid ? inst.convert(s.invalid) : false;
+            invalid = convertRanges(invalid);
+            valid = convertRanges(valid);
+
+            // Normalize min and max dates for comparing later (set default values where there are no values from wheels)
+            mind = getDate(getArray(mind));
+            maxd = getDate(getArray(maxd));
+
+            mins = { y: mind.getFullYear(), m: 0, d: 1, h: minH, i: minM, s: minS, a: 0 };
+            maxs = { y: maxd.getFullYear(), m: 11, d: 31, h: maxH, i: maxM, s: maxS, a: 1 };
 
             // ---
 
             return {
                 wheels: wheels,
-                headerText: s.headerText ? function (v) {
-                    return ms.formatDate(hformat, getDate(inst.temp), s);
+                headerText: s.headerText ? function () {
+                    return datetime.formatDate(hformat, getDate(inst.temp), s);
                 } : false,
                 formatResult: function (d) {
-                    return ms.formatDate(format, getDate(d), s);
+                    return datetime.formatDate(format, getDate(d), s);
                 },
                 parseValue: function (val) {
-                    return getArray(ms.parseDate(format, val, s));
+                    return getArray(val ? datetime.parseDate(format, val, s) : (s.defaultValue || new Date()));
                 },
                 validate: function (dw, i, time, dir) {
-                    var valid = getClosestValidDate(getDate(inst.temp), dir),
-                        temp = getArray(valid),//inst.temp, //.slice(0),
-                        mins = { y: mind.getFullYear(), m: 0, d: 1, h: 0, i: 0, s: 0, a: 0 },
-                        maxs = { y: maxd.getFullYear(), m: 11, d: 31, h: step(hampm ? 11 : 23, stepH), i: step(59, stepM), s: step(59, stepS), a: 1 },
-                        steps = { h: stepH, i: stepM, s: stepS, a: 1 },
+                    var validated = getClosestValidDate(getDate(inst.temp), dir),
+                        temp = getArray(validated),//inst.temp,//.slice(0),
                         y = get(temp, 'y'),
                         m = get(temp, 'm'),
                         minprop = true,
@@ -474,23 +717,23 @@
                                 t = $('.dw-ul', dw).eq(o[i]);
 
                             if (i == 'd') {
-                                maxdays = 32 - new Date(y, m, 32).getDate();
+                                maxdays = s.getMaxDayOfMonth(y, m);
                                 max = maxdays;
                                 if (regen) {
                                     $('.dw-li', t).each(function () {
                                         var that = $(this),
                                             d = that.data('val'),
-                                            w = new Date(y, m, d).getDay(),
-                                            str = dord.replace(/[my]/gi, '').replace(/dd/, d < 10 ? '0' + d : d).replace(/d/, d);
+                                            w = s.getDate(y, m, d).getDay(),
+                                            str = dord.replace(/[my]/gi, '').replace(/dd/, (d < 10 ? '0' + d : d) + (s.daySuffix || '')).replace(/d/, d + (s.daySuffix || ''));
                                         $('.dw-i', that).html(str.match(/DD/) ? str.replace(/DD/, '<span class="dw-day">' + s.dayNames[w] + '</span>') : str.replace(/D/, '<span class="dw-day">' + s.dayNamesShort[w] + '</span>'));
                                     });
                                 }
                             }
                             if (minprop && mind) {
-                                min = mind[f[i]] ? mind[f[i]]() : f[i](mind);
+                                min = f[i](mind);
                             }
                             if (maxprop && maxd) {
-                                max = maxd[f[i]] ? maxd[f[i]]() : f[i](maxd);
+                                max = f[i](maxd);
                             }
                             if (i != 'y') {
                                 var i1 = getIndex(t, min),
@@ -513,153 +756,37 @@
                                 maxprop = val == max;
                             }
                             // Disable some days
-                            if (invalid && i == 'd') {
-                                var d, j, k, v,
-                                    first = new Date(y, m, 1).getDay(),
-                                    idx = [];
+                            if (i == 'd') {
+                                var first = s.getDate(y, m, 1).getDay(),
+                                    idx = {};
 
-                                for (j = 0; j < invalid.length; j++) {
-                                    d = invalid[j];
-                                    v = d + '';
-                                    if (!d.start) {
-                                        if (d.getTime) { // Exact date
-                                            if (d.getFullYear() == y && d.getMonth() == m) {
-                                                idx.push(d.getDate() - 1);
-                                            }
-                                        } else if (!v.match(/w/i)) { // Day of month
-                                            v = v.split('/');
-                                            if (v[1]) {
-                                                if (v[0] - 1 == m) {
-                                                    idx.push(v[1] - 1);
-                                                }
-                                            } else {
-                                                idx.push(v[0] - 1);
-                                            }
-                                        } else { // Day of week
-                                            v = +v.replace('w', '');
-                                            for (k = v - first; k < maxdays; k += 7) {
-                                                if (k >= 0) {
-                                                    idx.push(k);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                // Set invalid indexes
+                                validateDates(invalid, y, m, first, maxdays, idx, 1);
+                                // Delete indexes which are valid 
+                                validateDates(valid, y, m, first, maxdays, idx, 0);
+
                                 $.each(idx, function (i, v) {
-                                    $('.dw-li', t).eq(v).removeClass('dw-v');
+                                    if (v) {
+                                        $('.dw-li', t).eq(i).removeClass('dw-v');
+                                    }
                                 });
-
-                                //val = inst.getValidCell(val, t, dir).val;
                             }
-
-                            // Set modified value
-                            //temp[o[i]] = val;
                         }
                     });
 
                     // Invalid times
-                    if (hasTime && invalid) {
+                    if (hasTime) {
+                        $.each(['a', 'h', 'i', 's'], function (i, v) {
+                            var val = get(temp, v),
+                                d = get(temp, 'd'),
+                                t = $('.dw-ul', dw).eq(o[v]);
 
-                        var dd, v, val, str, parts1, parts2, j, v1, v2, i1, i2, prop1, prop2, target, add, remove,
-                            spec = {},
-                            d = get(temp, 'd'),
-                            day = new Date(y, m, d),
-                            w = ['a', 'h', 'i', 's'];
+                            if (o[v] !== undefined) {
+                                validateTimes(invalid, i, v, temp, y, m, d, t, 0);
+                                validateTimes(valid, i, v, temp, y, m, d, t, 1);
 
-                        $.each(invalid, function (i, obj) {
-                            if (obj.start) {
-                                obj.apply = false;
-                                dd = obj.d;
-                                v = dd + '';
-                                str = v.split('/');
-                                if (dd && ((dd.getTime && y == dd.getFullYear() && m == dd.getMonth() && d == dd.getDate()) || // Exact date
-                                    (!v.match(/w/i) && ((str[1] && d == str[1] && m == str[0] - 1) || (!str[1] && d == str[0]))) || // Day of month
-                                    (v.match(/w/i) && day.getDay() == +v.replace('w', '')) // Day of week
-                                    )) {
-                                    obj.apply = true;
-                                    spec[day] = true; // Prevent applying generic rule on day, if specific exists
-                                }
-                            }
-                        });
-
-                        $.each(invalid, function (i, obj) {
-                            if (obj.start && (obj.apply || (!obj.d && !spec[day]))) {
-
-                                parts1 = obj.start.split(':');
-                                parts2 = obj.end.split(':');
-
-                                for (j = 0; j < 3; j++) {
-                                    if (parts1[j] === undefined) {
-                                        parts1[j] = 0;
-                                    }
-                                    if (parts2[j] === undefined) {
-                                        parts2[j] = 59;
-                                    }
-                                    parts1[j] = +parts1[j];
-                                    parts2[j] = +parts2[j];
-                                }
-
-                                parts1.unshift(parts1[0] > 11 ? 1 : 0);
-                                parts2.unshift(parts2[0] > 11 ? 1 : 0);
-
-                                if (hampm) {
-                                    if (parts1[1] >= 12) {
-                                        parts1[1] = parts1[1] - 12;
-                                    }
-
-                                    if (parts2[1] >= 12) {
-                                        parts2[1] = parts2[1] - 12;
-                                    }
-                                }
-
-                                prop1 = true;
-                                prop2 = true;
-                                $.each(w, function (i, v) {
-                                    if (o[v] !== undefined) {
-                                        val = get(temp, v);
-                                        add = 0;
-                                        remove = 0;
-                                        i1 = 0;
-                                        i2 = undefined;
-                                        target = $('.dw-ul', dw).eq(o[v]);
-
-                                        // Look ahead if next wheels should be disabled completely
-                                        for (j = i + 1; j < 4; j++) {
-                                            if (parts1[j] > 0) {
-                                                add = steps[v];
-                                            }
-                                            if (parts2[j] < maxs[w[j]]) {
-                                                remove = steps[v];
-                                            }
-                                        }
-
-                                        // Calculate min and max values
-                                        v1 = step(parts1[i] + add, steps[v]);
-                                        v2 = step(parts2[i] - remove, steps[v]);
-
-                                        if (prop1) {
-                                            i1 = getValidIndex(target, v1, maxs[v], 0);
-                                        }
-
-                                        if (prop2) {
-                                            i2 = getValidIndex(target, v2, maxs[v], 1);
-                                        }
-
-                                        // Disable values
-                                        if (prop1 || prop2) {
-                                            $('.dw-li', target).slice(i1, i2).removeClass('dw-v');
-                                        }
-
-                                        // Get valid value
-                                        val = inst.getValidCell(val, target, dir).val;
-
-                                        prop1 = prop1 && val == step(parts1[i], steps[v]);
-                                        prop2 = prop2 && val == step(parts2[i], steps[v]);
-
-                                        // Set modified value
-                                        temp[o[v]] = val;
-                                    }
-                                });
+                                // Get valid value
+                                validValues[i] = +inst.getValidCell(val, t, dir).val;
                             }
                         });
                     }
@@ -669,256 +796,9 @@
             };
         };
 
-    ms.i18n.en = $.extend(ms.i18n.en, locales);
-
     $.each(['date', 'time', 'datetime'], function (i, v) {
-        ms.presets[v] = preset;
+        ms.presets.scroller[v] = preset;
         ms.presetShort(v);
     });
-
-    // Utility functions
-    ms.datetime = {};
-
-    /**
-    * Format a date into a string value with a specified format.
-    * @param {String} format Output format.
-    * @param {Date} date Date to format.
-    * @param {Object} [settings={}] Settings.
-    * @return {String} Returns the formatted date string.
-    */
-    ms.formatDate = ms.datetime.formatDate = function (format, date, settings) {
-        if (!date) {
-            return null;
-        }
-        var s = $.extend({}, defaults, settings),
-            look = function (m) { // Check whether a format character is doubled
-                var n = 0;
-                while (i + 1 < format.length && format.charAt(i + 1) == m) {
-                    n++;
-                    i++;
-                }
-                return n;
-            },
-            f1 = function (m, val, len) { // Format a number, with leading zero if necessary
-                var n = '' + val;
-                if (look(m)) {
-                    while (n.length < len) {
-                        n = '0' + n;
-                    }
-                }
-                return n;
-            },
-            f2 = function (m, val, s, l) { // Format a name, short or long as requested
-                return (look(m) ? l[val] : s[val]);
-            },
-            i,
-            output = '',
-            literal = false;
-
-        for (i = 0; i < format.length; i++) {
-            if (literal) {
-                if (format.charAt(i) == "'" && !look("'")) {
-                    literal = false;
-                } else {
-                    output += format.charAt(i);
-                }
-            } else {
-                switch (format.charAt(i)) {
-                case 'd':
-                    output += f1('d', date.getDate(), 2);
-                    break;
-                case 'D':
-                    output += f2('D', date.getDay(), s.dayNamesShort, s.dayNames);
-                    break;
-                case 'o':
-                    output += f1('o', (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000, 3);
-                    break;
-                case 'm':
-                    output += f1('m', date.getMonth() + 1, 2);
-                    break;
-                case 'M':
-                    output += f2('M', date.getMonth(), s.monthNamesShort, s.monthNames);
-                    break;
-                case 'y':
-                    output += (look('y') ? date.getFullYear() : (date.getYear() % 100 < 10 ? '0' : '') + date.getYear() % 100);
-                    break;
-                case 'h':
-                    var h = date.getHours();
-                    output += f1('h', (h > 12 ? (h - 12) : (h == 0 ? 12 : h)), 2);
-                    break;
-                case 'H':
-                    output += f1('H', date.getHours(), 2);
-                    break;
-                case 'i':
-                    output += f1('i', date.getMinutes(), 2);
-                    break;
-                case 's':
-                    output += f1('s', date.getSeconds(), 2);
-                    break;
-                case 'a':
-                    output += date.getHours() > 11 ? s.pmText : s.amText;
-                    break;
-                case 'A':
-                    output += date.getHours() > 11 ? s.pmText.toUpperCase() : s.amText.toUpperCase();
-                    break;
-                case "'":
-                    if (look("'")) {
-                        output += "'";
-                    } else {
-                        literal = true;
-                    }
-                    break;
-                default:
-                    output += format.charAt(i);
-                }
-            }
-        }
-        return output;
-    };
-
-    /**
-    * Extract a date from a string value with a specified format.
-    * @param {String} format Input format.
-    * @param {String} value String to parse.
-    * @param {Object} [settings={}] Settings.
-    * @return {Date} Returns the extracted date.
-    */
-    ms.parseDate = ms.datetime.parseDate = function (format, value, settings) {
-        var s = $.extend({}, defaults, settings),
-            def = s.defaultValue || new Date();
-
-        if (!format || !value) {
-            return def;
-        }
-
-        value = (typeof value == 'object' ? value.toString() : value + '');
-
-        var shortYearCutoff = s.shortYearCutoff,
-            year = def.getFullYear(),
-            month = def.getMonth() + 1,
-            day = def.getDate(),
-            doy = -1,
-            hours = def.getHours(),
-            minutes = def.getMinutes(),
-            seconds = 0, //def.getSeconds(),
-            ampm = -1,
-            literal = false, // Check whether a format character is doubled
-            lookAhead = function (match) {
-                var matches = (iFormat + 1 < format.length && format.charAt(iFormat + 1) == match);
-                if (matches) {
-                    iFormat++;
-                }
-                return matches;
-            },
-            getNumber = function (match) { // Extract a number from the string value
-                lookAhead(match);
-                var size = (match == '@' ? 14 : (match == '!' ? 20 : (match == 'y' ? 4 : (match == 'o' ? 3 : 2)))),
-                    digits = new RegExp('^\\d{1,' + size + '}'),
-                    num = value.substr(iValue).match(digits);
-
-                if (!num) {
-                    return 0;
-                }
-                iValue += num[0].length;
-                return parseInt(num[0], 10);
-            },
-            getName = function (match, s, l) { // Extract a name from the string value and convert to an index
-                var names = (lookAhead(match) ? l : s),
-                    i;
-
-                for (i = 0; i < names.length; i++) {
-                    if (value.substr(iValue, names[i].length).toLowerCase() == names[i].toLowerCase()) {
-                        iValue += names[i].length;
-                        return i + 1;
-                    }
-                }
-                return 0;
-            },
-            checkLiteral = function () {
-                iValue++;
-            },
-            iValue = 0,
-            iFormat;
-
-        for (iFormat = 0; iFormat < format.length; iFormat++) {
-            if (literal) {
-                if (format.charAt(iFormat) == "'" && !lookAhead("'")) {
-                    literal = false;
-                } else {
-                    checkLiteral();
-                }
-            } else {
-                switch (format.charAt(iFormat)) {
-                case 'd':
-                    day = getNumber('d');
-                    break;
-                case 'D':
-                    getName('D', s.dayNamesShort, s.dayNames);
-                    break;
-                case 'o':
-                    doy = getNumber('o');
-                    break;
-                case 'm':
-                    month = getNumber('m');
-                    break;
-                case 'M':
-                    month = getName('M', s.monthNamesShort, s.monthNames);
-                    break;
-                case 'y':
-                    year = getNumber('y');
-                    break;
-                case 'H':
-                    hours = getNumber('H');
-                    break;
-                case 'h':
-                    hours = getNumber('h');
-                    break;
-                case 'i':
-                    minutes = getNumber('i');
-                    break;
-                case 's':
-                    seconds = getNumber('s');
-                    break;
-                case 'a':
-                    ampm = getName('a', [s.amText, s.pmText], [s.amText, s.pmText]) - 1;
-                    break;
-                case 'A':
-                    ampm = getName('A', [s.amText, s.pmText], [s.amText, s.pmText]) - 1;
-                    break;
-                case "'":
-                    if (lookAhead("'")) {
-                        checkLiteral();
-                    } else {
-                        literal = true;
-                    }
-                    break;
-                default:
-                    checkLiteral();
-                }
-            }
-        }
-        if (year < 100) {
-            year += new Date().getFullYear() - new Date().getFullYear() % 100 +
-                (year <= (typeof shortYearCutoff != 'string' ? shortYearCutoff : new Date().getFullYear() % 100 + parseInt(shortYearCutoff, 10)) ? 0 : -100);
-        }
-        if (doy > -1) {
-            month = 1;
-            day = doy;
-            do {
-                var dim = 32 - new Date(year, month - 1, 32).getDate();
-                if (day <= dim) {
-                    break;
-                }
-                month++;
-                day -= dim;
-            } while (true);
-        }
-        hours = (ampm == -1) ? hours : ((ampm && hours < 12) ? (hours + 12) : (!ampm && hours == 12 ? 0 : hours));
-        var date = new Date(year, month - 1, day, hours, minutes, seconds);
-        if (date.getFullYear() != year || date.getMonth() + 1 != month || date.getDate() != day) {
-            return def; // Invalid date
-        }
-        return date;
-    };
 
 })(jQuery);
